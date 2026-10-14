@@ -13,7 +13,7 @@ def welcome():
             print("Завершение программы.")
             break
         if command == "help":
-            print("Доступные команды: help, exit")
+            print()
+            continue
         else:
-            print(f"Неизвестная команда: {command}")
-        print()
+            print(f"\nНеизвестная команда: {command}\n")
