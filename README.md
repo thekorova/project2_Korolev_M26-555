@@ -147,6 +147,52 @@ CRUD — основные операции работы с данными:
 
 Программа удаляет все записи, соответствующие условию `WHERE`, и сохраняет обновлённые данные.
 
+## Декораторы и кэширование
+
+В проекте используются декораторы для обработки ошибок, подтверждения операций и измерения времени выполнения функций.
+
+### Обработка ошибок
+
+Декоратор `handle_db_errors` обрабатывает исключения `FileNotFoundError`, `KeyError`, `ValueError` и другие ошибки во время выполнения операций базы данных. При возникновении ошибки программа выводит сообщение.
+
+### Подтверждение удаления
+
+Декоратор `confirm_action` запрашивает подтверждение перед командами `delete` и `drop_table`.
+
+Например:
+
+`drop_table a`
+
+Программа выводит запрос:
+
+`Вы уверены, что хотите выполнить "удаление таблицы"? [y/n]:`
+
+Ответ `y` / `yes `подтверждает удаление, а `n` / `not` / `no` отменяет операцию.
+
+### Измерение времени
+
+Декоратор `log_time` измеряет длительность выполнения функций `insert` и `select` с помощью `time.monotonic()`.
+
+Пример сообщения:
+
+`Функция select выполнилась за 0.000 секунд`
+
+### Кэширование запросов
+
+Функция `create_cacher()` использует замыкание и словарь для сохранения результатов `select`.
+
+При повторном одинаковом запросе результат берётся из кэша, поэтому таблица не загружается и фильтрация не выполняется повторно. После успешного `insert`, `update`, `delete`, `create_table` или `drop_table` кэш очищается, чтобы данные оставались актуальными.
+
+## Структура проекта
+
+- `main.py` — точка входа.
+- `engine.py` — обработка команд.
+- `core.py` — операции с таблицами и записями.
+- `utils.py` — чтение и сохранение JSON-файлов.
+- `parser.py` — разбор передоваемых значений.
+- `decorators.py` — декораторы и кэширование.
+- `constants.py` — константы.
+
 ## Хранение данных
 
 Метаданные таблиц хранятся в файле:
@@ -169,18 +215,28 @@ CRUD — основные операции работы с данными:
 
 ## Пример работы
 
-```text
-create_table users name:str age:int is_active:bool
-insert into users values ("Sergei", 28, true)
-insert into users values ("Anna", 32, false)
-select from users
-select from users where age = 28
-update users set age = 29 where name = "Sergei"
-select from users
-delete from users where ID = 2
-select from users
-info users
-drop_table users
+```
+create_table a name:str age:int is_active:bool
+insert into a values ("a", 12, true)
+insert into a values ("s", 32, false)
+select from a
+select from a
+select from a where age = 12
+update a set age = 13 where name = "a"
+select from a
+delete from a where ID = 2
+n
+select from a
+delete from a where ID = 2
+y
+select from a
+info a
+drop_table a
+n
+list_tables
+drop_table a
+y
+list_tables
 exit
 ```
 
@@ -197,3 +253,9 @@ https://asciinema.org/a/dHMBgJbNrnTT0EbC
 Демонстрация создания таблицы, добавления записей, просмотра через PrettyTable, обновления и удаления записей, просмотра структуры таблицы.
 
 https://asciinema.org/a/JVSC6CB2uMNUVu1I
+
+### Финальный этап — декораторы и кэширование
+
+Демонстрация полного цикла работы с базой данных.
+
+https://asciinema.org/a/vWuIcG3Wy1PQPkkU

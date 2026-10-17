@@ -18,7 +18,7 @@ def parser(value):
 
 def parser_dict(value):
     """Преобразует входящие данные в словарь"""
-    parts = value.split("=")
+    parts = value.split("=", 1)
     if len(parts) != 2:
         print('Ошибка: условие должно содержать один знак "="')
         return None

@@ -3,6 +3,7 @@ import shlex
 import prompt
 from prettytable import PrettyTable
 
+from primitive_db.constants import META_FILE, VALID_TYPES
 from primitive_db.core import (
     create_table,
     delete,
@@ -12,6 +13,7 @@ from primitive_db.core import (
     select,
     update,
 )
+from primitive_db.decorators import create_cacher
 from primitive_db.parser import parser_dict, parser_incept
 from primitive_db.utils import (
     delete_table_data,
@@ -60,8 +62,9 @@ def print_help():
 def run():
     """Запускает основной цикл программы"""
     print_help()
+    cache_result, clear_cache = create_cacher()
     while True:
-        metadata = load_metadata("db_meta.json")
+        metadata = load_metadata(META_FILE)
         user_input = prompt.string("Введите команду: ")
         try:
             args = shlex.split(user_input)
@@ -98,10 +101,15 @@ def run():
                     print(f"Некорректное значение: {args[2]}. Попробуйте снова.")
                     continue
                 before_control = len(metadata)
-                metadata = drop_table(metadata, args[1])
+                after_control = drop_table(metadata, args[1])
+                if after_control is None:
+                    continue
+                else:
+                    metadata = after_control
                 if before_control > len(metadata):
-                    save_metadata("db_meta.json", metadata)
+                    save_metadata(META_FILE, metadata)
                     delete_table_data(args[1])
+                    clear_cache()
             case "create_table":
                 if len(args) < 2:
                     print("Некорректное значение: имя таблицы отсутствует.")
@@ -122,7 +130,8 @@ def run():
                 before_control = len(metadata)
                 metadata = create_table(metadata, table_name, columns)
                 if before_control < len(metadata):
-                    save_metadata("db_meta.json", metadata)
+                    save_metadata(META_FILE, metadata)
+                    clear_cache()
             case "insert":
                 if len(args) < 5 or args[1] != "into" or args[3] != "values":
                     print(
@@ -141,6 +150,7 @@ def run():
                 data = insert(metadata, table_name, values)
                 if data is not None:
                     save_table_data(table_name, data)
+                    clear_cache()
             case "select":
                 if len(args) < 3 or args[1] != "from":
                     print(
@@ -165,8 +175,17 @@ def run():
                         "[where <столбец> = <значение>]"
                     )
                     continue
-                data = load_table_data(table_name)
-                table = select(data, where_clause)
+                key = (
+                    table_name,
+                    tuple(sorted(where_clause.items()))
+                    if where_clause is not None
+                    else None,
+                )
+                table = cache_result(
+                    key, lambda: select(load_table_data(table_name), where_clause)
+                )
+                if table is None:
+                    continue
                 pt = PrettyTable()
                 pt.field_names = [column[0] for column in metadata[table_name]]
                 for row in table:
@@ -199,7 +218,7 @@ def run():
                 if key_new == "ID":
                     print("Ошибка: менять ID запрещено")
                     continue
-                types = {"int": int, "str": str, "bool": bool}
+                types = VALID_TYPES
                 if type(values_new_pars[key_new]) is not types[meta_table[key_new]]:
                     print(
                         f"Ошибка: столбец {key_new} ожидает тип {meta_table[key_new]}"
@@ -216,7 +235,10 @@ def run():
                     print("Записи по заданному условию не найдены")
                     continue
                 table = update(data, values_new_pars, values_old_pars)
+                if table is None:
+                    continue
                 save_table_data(table_name, table)
+                clear_cache()
                 for i in re_value:
                     print(
                         f'Запись с ID={i["ID"]} в таблице "{table_name}" '
@@ -240,7 +262,10 @@ def run():
                 data = load_table_data(table_name)
                 deleted = [i for i in data if where_clause.items() <= i.items()]
                 table = delete(data, where_clause)
+                if table is None:
+                    continue
                 save_table_data(table_name, table)
+                clear_cache()
                 for i in deleted:
                     print(
                         f"Запись с ID={i['ID']} успешно удалена из "
