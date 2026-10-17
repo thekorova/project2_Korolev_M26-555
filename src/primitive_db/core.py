@@ -1,9 +1,10 @@
+from primitive_db.constants import VALID_TYPES
+from primitive_db.decorators import confirm_action, handle_db_errors, log_time
 from primitive_db.utils import load_table_data
 
 
 def create_table(metadata, table_name, columns):
     """Создает таблицу"""
-    types = {"int", "str", "bool"}
     columns_names = set()
     if table_name in metadata:
         print(f'Ошибка: Таблица "{table_name}" уже существует')
@@ -19,7 +20,7 @@ def create_table(metadata, table_name, columns):
         if not iname:
             print("Ошибка: Имя столбца не может быть пустым")
             return metadata
-        if itype not in types:
+        if itype not in VALID_TYPES:
             print(f"Ошибка: {itype} неверный тип данных")
             return metadata
         if iname == "ID" and itype != "int":
@@ -39,6 +40,8 @@ def create_table(metadata, table_name, columns):
     return metadata
 
 
+@handle_db_errors
+@confirm_action("удаление таблицы")
 def drop_table(metadata, table_name):
     """Удаляет таблицу"""
     if table_name in metadata:
@@ -58,6 +61,8 @@ def list_tables(metadata):
         print(f"- {i}")
 
 
+@handle_db_errors
+@log_time
 def insert(metadata, table_name, values):
     """Добавляет новую запись в таблицу,
     проверяя количество и типы значений"""
@@ -68,10 +73,9 @@ def insert(metadata, table_name, values):
     if len(values) != len(table):
         print("Ошибка: неверное количество значений")
         return
-    types = {"int": int, "str": str, "bool": bool}
     for i, v in zip(table, values):
         iname, itype = i
-        re_type = types[itype]
+        re_type = VALID_TYPES[itype]
         if type(v) is not re_type:
             print(f"Ошибка: столбец {iname} ожидает тип {itype}")
             return
@@ -87,6 +91,8 @@ def insert(metadata, table_name, values):
     return data
 
 
+@handle_db_errors
+@log_time
 def select(table_data, where_clause=None):
     """Возвращает записи с заданным значением where_clause"""
     if where_clause is None:
@@ -96,6 +102,7 @@ def select(table_data, where_clause=None):
     return find
 
 
+@handle_db_errors
 def update(table_data, set_clause, where_clause):
     """Изменяет значение по заданному условию"""
     for i in table_data:
@@ -105,6 +112,8 @@ def update(table_data, set_clause, where_clause):
     return table_data
 
 
+@handle_db_errors
+@confirm_action("удаление записей")
 def delete(table_data, where_clause):
     """Удаляет строку по заданному значению"""
     table_data = [i for i in table_data if not where_clause.items() <= i.items()]
